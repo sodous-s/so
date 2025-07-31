@@ -1,11 +1,298 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>秘密区域</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极简留言板</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Microsoft YaHei', sans-serif; }
+        body { background-color: #f0f8ff; padding: 20px; max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; margin: 20px 0; color: #2c3e50; }
+        .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        
+        /* 用户类型选择 */
+        .user-type { text-align: center; margin-bottom: 20px; }
+        .user-type button { background: #4CAF50; color: white; border: none; padding: 10px 20px; margin: 0 10px; border-radius: 5px; cursor: pointer; }
+        
+        /* 管理员登录 */
+        .admin-login { display: none; text-align: center; }
+        .admin-login input, .admin-login select { padding: 8px; margin: 5px; width: 200px; }
+        
+        /* 留言表单 */
+        .message-form { margin-bottom: 20px; }
+        .message-form input, .message-form textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .message-form textarea { height: 100px; }
+        .message-form button { background: #3498db; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
+        
+        /* 留言列表 */
+        .messages { border-top: 1px solid #eee; padding-top: 20px; }
+        .message { background: #f9f9f9; border-left: 4px solid #3498db; padding: 15px; margin-bottom: 15px; border-radius: 0 5px 5px 0; }
+        .message.admin-main { border-left-color: #e74c3c; }
+        .message.admin-assistant { border-left-color: #f39c12; }
+        .message-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .username { font-weight: bold; }
+        .badge { font-size: 0.8em; padding: 2px 5px; border-radius: 3px; color: white; }
+        .badge-main { background: #e74c3c; }
+        .badge-assistant { background: #f39c12; }
+        .timestamp { color: #7f8c8d; font-size: 0.8em; }
+        .message-content { margin: 10px 0; }
+        
+        /* 回复部分 */
+        .reply { background: #fff; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #eee; }
+        .reply-form { margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <h1>没了</h1>
-    <a href="https://sodous-s.github.io">回到首页</a>
+    <h1>极简留言板</h1>
+    
+    <div class="container">
+        <!-- 用户类型选择 -->
+        <div class="user-type" id="userTypeSection">
+            <h2>您是管理员吗?</h2>
+            <button id="adminBtn">是的，我是管理员</button>
+            <button id="userBtn">不是，我是普通用户</button>
+        </div>
+        
+        <!-- 管理员登录 -->
+        <div class="admin-login" id="adminLoginSection">
+            <h2>管理员登录</h2>
+            <div>
+                <select id="adminRole">
+                    <option value="main">主管理员</option>
+                    <option value="assistant">副管理员</option>
+                </select>
+            </div>
+            <div>
+                <input type="password" id="adminPassword" placeholder="输入密码">
+            </div>
+            <button id="loginBtn">登录</button>
+        </div>
+        
+        <!-- 留言表单 -->
+        <div class="message-form" id="messageForm">
+            <input type="text" id="username" placeholder="您的名字">
+            <textarea id="messageContent" placeholder="请输入留言内容..."></textarea>
+            <button id="submitBtn">发布留言</button>
+        </div>
+        
+        <!-- 留言列表 -->
+        <div class="messages" id="messages">
+            <div id="loading">加载留言中...</div>
+        </div>
+    </div>
+
+    <script>
+        // 后端API地址（部署后替换为你的Worker地址）
+        const API_URL = "https://www.aaaaaaaaaa10a2025.workers.dev";
+        
+        // 当前用户状态
+        let currentUser = {
+            isAdmin: false,
+            role: null,
+            badge: null
+        };
+
+        // DOM元素
+        const elements = {
+            userTypeSection: document.getElementById('userTypeSection'),
+            adminLoginSection: document.getElementById('adminLoginSection'),
+            messageForm: document.getElementById('messageForm'),
+            messages: document.getElementById('messages'),
+            adminBtn: document.getElementById('adminBtn'),
+            userBtn: document.getElementById('userBtn'),
+            loginBtn: document.getElementById('loginBtn'),
+            submitBtn: document.getElementById('submitBtn'),
+            username: document.getElementById('username'),
+            messageContent: document.getElementById('messageContent'),
+            adminRole: document.getElementById('adminRole'),
+            adminPassword: document.getElementById('adminPassword'),
+            loading: document.getElementById('loading')
+        };
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            elements.adminBtn.addEventListener('click', () => {
+                elements.userTypeSection.style.display = 'none';
+                elements.adminLoginSection.style.display = 'block';
+            });
+            
+            elements.userBtn.addEventListener('click', () => {
+                elements.userTypeSection.style.display = 'none';
+                elements.messageForm.style.display = 'block';
+                currentUser.isAdmin = false;
+                loadMessages();
+            });
+            
+            elements.loginBtn.addEventListener('click', handleAdminLogin);
+            elements.submitBtn.addEventListener('click', handleSubmitMessage);
+        }
+
+        // 管理员登录处理
+        async function handleAdminLogin() {
+            const role = elements.adminRole.value;
+            const password = elements.adminPassword.value;
+            
+            // 密码验证
+            if (role === 'main') {
+                if (password !== 'qqqqqqqqqqefffffwvwscwyyyyyssssss3333333331009') {
+                    alert('主管理员密码错误');
+                    return;
+                }
+            } else if (role === 'assistant') {
+                if (password !== 'abc,wind123qwe') {
+                    alert('副管理员密码错误');
+                    return;
+                }
+            }
+            
+            currentUser = {
+                isAdmin: true,
+                role: role,
+                badge: role === 'main' ? '主管理员' : '副管理员'
+            };
+            
+            elements.adminLoginSection.style.display = 'none';
+            elements.messageForm.style.display = 'block';
+            elements.username.value = role === 'main' ? '主管理员' : '副管理员';
+            elements.username.readOnly = true;
+            
+            loadMessages();
+        }
+
+        // 提交留言处理
+        async function handleSubmitMessage() {
+            const content = elements.messageContent.value;
+            const user = elements.username.value || '匿名用户';
+            
+            if (!content.trim()) {
+                alert('请输入留言内容');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        user: user,
+                        isAdmin: currentUser.isAdmin,
+                        role: currentUser.role
+                    })
+                });
+                
+                if (response.ok) {
+                    elements.messageContent.value = '';
+                    if (!currentUser.isAdmin) {
+                        elements.username.value = '';
+                    }
+                    loadMessages();
+                } else {
+                    alert('发布失败，请重试');
+                }
+            } catch (error) {
+                alert('网络错误');
+            }
+        }
+
+        // 加载留言列表
+        async function loadMessages() {
+            try {
+                const response = await fetch(`${API_URL}/messages`);
+                const messages = await response.json();
+                
+                elements.loading.style.display = 'none';
+                elements.messages.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = `message ${msg.role === 'main' ? 'admin-main' : ''} ${msg.role === 'assistant' ? 'admin-assistant' : ''}`;
+                    
+                    messageElement.innerHTML = `
+                        <div class="message-header">
+                            <div>
+                                <span class="username">${msg.user}</span>
+                                ${msg.role === 'main' ? '<span class="badge badge-main">主管理员</span>' : ''}
+                                ${msg.role === 'assistant' ? '<span class="badge badge-assistant">副管理员</span>' : ''}
+                            </div>
+                            <div class="timestamp">${new Date(msg.timestamp).toLocaleString()}</div>
+                        </div>
+                        <div class="message-content">${msg.content}</div>
+                        ${msg.replies && msg.replies.length > 0 ? `
+                            <div class="replies">
+                                <h3>回复 (${msg.replies.length}):</h3>
+                                ${msg.replies.map(reply => `
+                                    <div class="reply">
+                                        <div class="message-header">
+                                            <div>
+                                                <span class="username">${reply.user}</span>
+                                                ${reply.role === 'main' ? '<span class="badge badge-main">主管理员</span>' : ''}
+                                                ${reply.role === 'assistant' ? '<span class="badge badge-assistant">副管理员</span>' : ''}
+                                            </div>
+                                            <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                                        </div>
+                                        <div class="message-content">${reply.content}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="reply-form">
+                            <input type="text" class="reply-user" placeholder="您的名字" value="${currentUser.isAdmin ? currentUser.badge : ''}">
+                            <textarea class="reply-content" placeholder="回复内容..."></textarea>
+                            <button onclick="handleReply(${msg.id}, this)">回复</button>
+                        </div>
+                    `;
+                    
+                    elements.messages.appendChild(messageElement);
+                });
+            } catch (error) {
+                console.error('加载失败:', error);
+                elements.messages.innerHTML = '<p>加载留言失败，请刷新页面</p>';
+            }
+        }
+
+        // 回复处理
+        function handleReply(messageId, button) {
+            const replyForm = button.parentElement;
+            const userInput = replyForm.querySelector('.reply-user');
+            const contentInput = replyForm.querySelector('.reply-content');
+            
+            const user = userInput.value || '匿名用户';
+            const content = contentInput.value;
+            
+            if (!content.trim()) {
+                alert('请输入回复内容');
+                return;
+            }
+            
+            try {
+                fetch(`${API_URL}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messageId: messageId,
+                        content: content,
+                        user: user,
+                        isAdmin: currentUser.isAdmin,
+                        role: currentUser.role
+                    })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        contentInput.value = '';
+                        loadMessages();
+                    } else {
+                        alert('回复失败');
+                    }
+                });
+            } catch (error) {
+                alert('网络错误');
+            }
+        }
+
+        // 初始化
+        window.handleReply = handleReply;
+        window.addEventListener('DOMContentLoaded', setupEventListeners);
+    </script>
 </body>
 </html>
